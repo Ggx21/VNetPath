@@ -40,32 +40,6 @@ static __always_inline int ipv4_offset(struct __sk_buff *skb, __u8 eth[14])
     return type == ETH_P_IP ? offset : -1;
 }
 
-static __always_inline int find_mark(const __u8 ip[60], __u32 header_len)
-{
-    __u32 pos = 20;
-#pragma clang loop unroll(disable)
-    for (int i = 0; i < 40; i++) {
-        if (pos >= header_len || pos >= 60 || ip[pos] == 0)
-            break;
-        if (ip[pos] == 1) {
-            pos++;
-            continue;
-        }
-        if (pos + 1 >= header_len || pos >= 59)
-            break;
-        __u32 len = ip[pos + 1];
-        if (len < 2 || pos + len > header_len)
-            break;
-        if (ip[pos] == VNETPATH_OPTION_TYPE && len == VNETPATH_OPTION_LENGTH &&
-            pos <= 60 - VNETPATH_OPTION_LENGTH &&
-            ip[pos + 2] == 'V' && ip[pos + 3] == 'N' &&
-            ip[pos + 4] == 'P' && ip[pos + 5] == 'T')
-            return pos;
-        pos += len;
-    }
-    return -1;
-}
-
 static __always_inline void checksum_ipv4(__u8 ip[60], __u32 header_len)
 {
     __u32 sum = 0;
@@ -98,8 +72,8 @@ int trace_forward(struct __sk_buff *skb)
     if ((ip[0] >> 4) != 4 || header_len < 20 + VNETPATH_OPTION_LENGTH ||
         header_len > sizeof(ip) || bpf_skb_load_bytes(skb, l3, ip, header_len))
         return TCX_NEXT;
-    int option = find_mark(ip, header_len);
-    if (option < 20 || option > 60 - VNETPATH_OPTION_LENGTH)
+    int id_offset = vnetpath_probe_id_offset(ip, header_len);
+    if (id_offset < 24 || id_offset > 60 - VNETPATH_PROBE_FIELDS_LENGTH)
         return TCX_NEXT;
 
     __u32 key = 0;
@@ -108,10 +82,10 @@ int trace_forward(struct __sk_buff *skb)
     __u32 sequence = 0;
 #pragma unroll
     for (int i = 0; i < 8; i++)
-        probe = (probe << 8) | ip[option + 6 + i];
+        probe = (probe << 8) | ip[id_offset + i];
 #pragma unroll
     for (int i = 0; i < 4; i++)
-        sequence = (sequence << 8) | ip[option + 14 + i];
+        sequence = (sequence << 8) | ip[id_offset + 8 + i];
     if (sequence == (__u32)-1 || (read_be16(ip + 6) & 0x3fff) ||
         skb->gso_segs > 1) {
         /* A fragmented/segmented datagram has no single next event. */
@@ -123,7 +97,7 @@ int trace_forward(struct __sk_buff *skb)
     sequence++;
 #pragma unroll
     for (int i = 0; i < 4; i++)
-        ip[option + 14 + i] = sequence >> (24 - 8 * i);
+        ip[id_offset + 8 + i] = sequence >> (24 - 8 * i);
     checksum_ipv4(ip, header_len);
     /* One write updates both the sequence and IPv4 header checksum. The
      * helper also adjusts skb checksum metadata for CHECKSUM_COMPLETE.

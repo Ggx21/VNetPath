@@ -65,5 +65,5 @@ def create_plan(source_ip, source_port, destination_ip, destination_port, vm_nic
 
 
 def ipv4_probe_option(probe_id):
-    # The option occupies 18 bytes. Two end/padding bytes align the IPv4 header.
-    return struct.pack("!BB4sQI2x", 0x1E, 18, b"VNPT", probe_id, 0)
+    # The IPv4 type and length are the first two bytes of the four-byte magic.
+    return struct.pack("!BB2sQI", 0x1E, 16, b"VN", probe_id, 0)

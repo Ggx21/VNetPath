@@ -1,0 +1,49 @@
+{
+  "experiment": "Figure 4(b) HTTP POST packet size",
+  "run_utc": "2026-11-26T13:13:57.736335+00:00",
+  "setup": "Two Ubuntu 24.04 VMs on separate physical hosts. Capture at the receiving VM on the dedicated Ethernet network.",
+  "agent_attached": false,
+  "configuration": {
+    "requests_per_condition": 1000,
+    "request_size_seed": 1
+  },
+  "measurement": "Each row joins two received Ethernet frames by HTTP request ID and payload hash. Frame lengths are pcap wire lengths.",
+  "kernel_releases": [
+    "6.8.0-147-generic"
+  ],
+  "result": {
+    "paired_requests": 1000,
+    "ranges": {
+      "baseline_frame": [
+        170,
+        200
+      ],
+      "marked_frame": [
+        186,
+        216
+      ],
+      "baseline_ip": [
+        156,
+        186
+      ],
+      "marked_ip": [
+        172,
+        202
+      ],
+      "option_bytes": [
+        16,
+        16
+      ],
+      "extra_frame_bytes": [
+        16,
+        16
+      ],
+      "frame_overhead_pct": [
+        8.0,
+        9.411764705882353
+      ]
+    }
+  },
+  "receiver_pcap_sha256": "10248d5e5e6b044866772592587dfdcd885167147891072bf8eb19bffa44a5d3",
+  "pairs_csv_sha256": "60e29a96af7202ad3d48a96a5b52e5ef2d8d2680421980d8fd6bfa5fd2bf1d29"
+}
